@@ -3647,6 +3647,50 @@ int snd_soc_dapm_new_controls(struct snd_soc_dapm_context *dapm,
 }
 EXPORT_SYMBOL_GPL(snd_soc_dapm_new_controls);
 
+/**
+ * snd_soc_dapm_free_controls - free dapm controls
+ * @dapm: DAPM context
+ * @widget: widget array
+ * @num: number of widgets
+ *
+ * Free DAPM controls based upon the templates.
+ *
+ * Returns 0 for success else error.
+ */
+int snd_soc_dapm_free_controls(struct snd_soc_dapm_context *dapm,
+	const struct snd_soc_dapm_widget *widget,
+	int num)
+{
+	int i;
+	struct snd_soc_dapm_widget *w, *next_w;
+
+	mutex_lock(&dapm->card->dapm_mutex);
+	for (i = 0; i < num; i++) {
+		/* FIXME optimize below logic to identify widget pointer */
+		list_for_each_entry_safe(w, next_w, &dapm->card->widgets,
+					 list) {
+			if (w->dapm != dapm)
+				continue;
+			if (!strcmp(w->name, widget->name))
+				break;
+			w = NULL;
+		}
+		if (!w) {
+			dev_err(dapm->dev, "%s: widget not found\n",
+				 widget->name);
+			return -EINVAL;
+		}
+		widget++;
+#ifdef CONFIG_DEBUG_FS
+		debugfs_remove(w->debugfs_widget);
+#endif
+		snd_soc_dapm_free_widget(w, true);
+	}
+	mutex_unlock(&dapm->card->dapm_mutex);
+	return 0;
+}
+EXPORT_SYMBOL_GPL(snd_soc_dapm_free_controls);
+
 static int snd_soc_dai_link_event(struct snd_soc_dapm_widget *w,
 				  struct snd_kcontrol *kcontrol, int event)
 {
