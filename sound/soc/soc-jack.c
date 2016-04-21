@@ -66,10 +66,13 @@ int snd_soc_card_jack_new(struct snd_soc_card *card, const char *id, int type,
 	INIT_LIST_HEAD(&jack->pins);
 	INIT_LIST_HEAD(&jack->jack_zones);
 	BLOCKING_INIT_NOTIFIER_HEAD(&jack->notifier);
+	INIT_LIST_HEAD(&jack->list);
 
 	ret = snd_jack_new(card->snd_card, id, type, &jack->jack, false, false);
 	if (ret)
 		return ret;
+
+	list_add(&jack->list, &card->jack_list);
 
 	if (num_pins)
 		return snd_soc_jack_add_pins(jack, num_pins, pins);

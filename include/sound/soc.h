@@ -749,6 +749,7 @@ struct snd_soc_jack {
 	int status;
 	struct blocking_notifier_head notifier;
 	struct list_head jack_zones;
+	struct list_head list;
 };
 
 /* SoC PCM stream information */
@@ -1196,6 +1197,9 @@ struct snd_soc_card {
 
 	/* attached dynamic objects */
 	struct list_head dobj_list;
+
+	/* attached dynamic jacks */
+	struct list_head jack_list;
 
 	/* Generic DAPM context for the card */
 	struct snd_soc_dapm_context dapm;

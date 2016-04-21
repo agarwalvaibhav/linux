@@ -2935,6 +2935,7 @@ int snd_soc_register_card(struct snd_soc_card *card)
 
 	INIT_LIST_HEAD(&card->dapm_dirty);
 	INIT_LIST_HEAD(&card->dobj_list);
+	INIT_LIST_HEAD(&card->jack_list);
 	card->instantiated = 0;
 	mutex_init(&card->mutex);
 	mutex_init(&card->dapm_mutex);
