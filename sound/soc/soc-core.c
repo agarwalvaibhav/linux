@@ -2433,6 +2433,43 @@ static int snd_soc_add_controls(struct snd_card *card, struct device *dev,
 	return 0;
 }
 
+static int snd_soc_remove_controls(struct snd_card *card, struct device *dev,
+	const struct snd_kcontrol_new *controls, int num_controls,
+	const char *prefix)
+{
+	int i, err;
+
+	for (i = 0; i < num_controls; i++) {
+		const struct snd_kcontrol_new *control = &controls[i];
+		struct snd_ctl_elem_id id;
+		struct snd_kcontrol *kctl;
+
+		if (prefix)
+			snprintf(id.name, sizeof(id.name), "%s %s", prefix,
+				 control->name);
+		else
+			strlcpy(id.name, control->name, sizeof(id.name));
+		id.numid = 0;
+		id.iface = control->iface;
+		id.device = control->device;
+		id.subdevice = control->subdevice;
+		id.index = control->index;
+		kctl = snd_ctl_find_id(card, &id);
+		if (kctl == NULL) {
+			dev_err(dev, "%d: Failed to find %s\n", err,
+				control->name);
+			return -ENOENT;
+		}
+		err = snd_ctl_remove(card, kctl);
+		if (err < 0) {
+			dev_err(dev, "%d: Failed to remove %s\n", err,
+				control->name);
+			return err;
+		}
+	}
+	return 0;
+}
+
 struct snd_kcontrol *snd_soc_card_get_kcontrol(struct snd_soc_card *soc_card,
 					       const char *name)
 {
@@ -2470,6 +2507,29 @@ int snd_soc_add_component_controls(struct snd_soc_component *component,
 EXPORT_SYMBOL_GPL(snd_soc_add_component_controls);
 
 /**
+ * snd_soc_remove_component_controls - Remove an array of controls from a
+ * component.
+ *
+ * @component: Component to remove controls from
+ * @controls: Array of controls to remove
+ * @num_controls: Number of elements in the array
+ *
+ * Removes the controls from a component. You must be in the write lock -
+ * down_write(&snd_card->controls_rwsem).
+ *
+ * Return: 0 for success, else error.
+ */
+int snd_soc_remove_component_controls(struct snd_soc_component *component,
+	const struct snd_kcontrol_new *controls, unsigned int num_controls)
+{
+	struct snd_card *card = component->card->snd_card;
+
+	return snd_soc_remove_controls(card, component->dev, controls,
+				       num_controls, component->name_prefix);
+}
+EXPORT_SYMBOL_GPL(snd_soc_remove_component_controls);
+
+/**
  * snd_soc_add_codec_controls - add an array of controls to a codec.
  * Convenience function to add a list of controls. Many codecs were
  * duplicating this code.
@@ -2487,6 +2547,26 @@ int snd_soc_add_codec_controls(struct snd_soc_codec *codec,
 		num_controls);
 }
 EXPORT_SYMBOL_GPL(snd_soc_add_codec_controls);
+
+/**
+ * snd_soc_remove_codec_controls - remove an array of controls from a codec.
+ *
+ * @codec: codec to remove controls from
+ * @controls: array of controls to remove
+ * @num_controls: number of elements in the array
+ *
+ * Removes the controls from a codec. You must be in the write lock -
+ * down_write(&snd_card->controls_rwsem).
+ *
+ * Return 0 for success, else error.
+ */
+int snd_soc_remove_codec_controls(struct snd_soc_codec *codec,
+	const struct snd_kcontrol_new *controls, unsigned int num_controls)
+{
+	return snd_soc_remove_component_controls(&codec->component, controls,
+		num_controls);
+}
+EXPORT_SYMBOL_GPL(snd_soc_remove_codec_controls);
 
 /**
  * snd_soc_add_platform_controls - add an array of controls to a platform.
