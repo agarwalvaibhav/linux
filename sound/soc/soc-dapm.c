@@ -2838,6 +2838,79 @@ err:
 	return ret;
 }
 
+static bool dapm_can_update_mux_path(const char *control_name,
+				     const struct snd_kcontrol_new *kcontrol)
+{
+	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
+	int i;
+
+	for (i = 0; i < e->items; i++) {
+		if (!(strcmp(control_name, e->texts[i])))
+			return true;
+	}
+	return false;
+}
+
+static bool dapm_can_update_mixer_path(struct snd_soc_dapm_widget *dest,
+				       const char *control_name)
+{
+	int i;
+
+	/* search for mixer kcontrol */
+	for (i = 0; i < dest->num_kcontrols; i++) {
+		if (!strcmp(control_name, dest->kcontrol_news[i].name))
+			return true;
+	}
+	return false;
+}
+
+static bool dapm_can_update_path(struct snd_soc_dapm_path *path,
+				 const char *control_name)
+{
+	bool ret;
+	struct snd_soc_dapm_widget *sink = path->sink;
+
+	switch (sink->id) {
+	case snd_soc_dapm_adc:
+	case snd_soc_dapm_dac:
+	case snd_soc_dapm_pga:
+	case snd_soc_dapm_out_drv:
+	case snd_soc_dapm_input:
+	case snd_soc_dapm_output:
+	case snd_soc_dapm_siggen:
+	case snd_soc_dapm_micbias:
+	case snd_soc_dapm_vmid:
+	case snd_soc_dapm_pre:
+	case snd_soc_dapm_post:
+	case snd_soc_dapm_supply:
+	case snd_soc_dapm_regulator_supply:
+	case snd_soc_dapm_clock_supply:
+	case snd_soc_dapm_aif_in:
+	case snd_soc_dapm_aif_out:
+	case snd_soc_dapm_dai_in:
+	case snd_soc_dapm_dai_out:
+	case snd_soc_dapm_dai_link:
+	case snd_soc_dapm_hp:
+	case snd_soc_dapm_mic:
+	case snd_soc_dapm_line:
+	case snd_soc_dapm_spk:
+		return true;
+	case snd_soc_dapm_mux:
+		ret = dapm_can_update_mux_path(control_name,
+					       &sink->kcontrol_news[0]);
+		break;
+	case snd_soc_dapm_switch:
+	case snd_soc_dapm_mixer:
+	case snd_soc_dapm_mixer_named_ctl:
+		ret = dapm_can_update_mixer_path(sink, control_name);
+		break;
+	default:
+		ret = false;
+		break;
+	}
+	return ret;
+}
+
 static int snd_soc_dapm_del_route(struct snd_soc_dapm_context *dapm,
 				  const struct snd_soc_dapm_route *route)
 {
@@ -2848,12 +2921,7 @@ static int snd_soc_dapm_del_route(struct snd_soc_dapm_context *dapm,
 	char prefixed_sink[80];
 	char prefixed_source[80];
 	const char *prefix;
-
-	if (route->control) {
-		dev_err(dapm->dev,
-			"ASoC: Removal of routes with controls not supported\n");
-		return -EINVAL;
-	}
+	const char *control = route->control;
 
 	prefix = soc_dapm_prefix(dapm);
 	if (prefix) {
@@ -2874,6 +2942,13 @@ static int snd_soc_dapm_del_route(struct snd_soc_dapm_context *dapm,
 			continue;
 		if (strcmp(p->sink->name, sink) != 0)
 			continue;
+		if (route->control) {
+			/* verify if path corresponds to this route with
+			 * name == route->control
+			 */
+			if (!dapm_can_update_path(p, control))
+				continue;
+		}
 		path = p;
 		break;
 	}
@@ -2893,9 +2968,12 @@ static int snd_soc_dapm_del_route(struct snd_soc_dapm_context *dapm,
 		dapm_update_widget_flags(wsource);
 		dapm_update_widget_flags(wsink);
 	} else {
-		dev_warn(dapm->dev, "ASoC: Route %s->%s does not exist\n",
-			 source, sink);
+		dev_warn(dapm->dev, "ASoC: Route %s->%s->%s does not exist\n",
+			 source, control, sink);
+		return -EINVAL;
 	}
+	dev_dbg(dapm->dev, "ASoC: Route %s->%s->%s deleted\n", source,
+		control, sink);
 
 	return 0;
 }
