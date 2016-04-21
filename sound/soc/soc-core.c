@@ -2410,14 +2410,19 @@ EXPORT_SYMBOL_GPL(snd_soc_cnew);
 
 static int snd_soc_add_controls(struct snd_card *card, struct device *dev,
 	const struct snd_kcontrol_new *controls, int num_controls,
-	const char *prefix, void *data)
+	const char *prefix, void *data, int card_instantiated)
 {
 	int err, i;
 
 	for (i = 0; i < num_controls; i++) {
 		const struct snd_kcontrol_new *control = &controls[i];
-		err = snd_ctl_add(card, snd_soc_cnew(control, data,
-						     control->name, prefix));
+		struct snd_kcontrol *kcontrol = snd_soc_cnew(control, data,
+							     control->name,
+							     prefix);
+		if (card_instantiated)
+			err = snd_ctl_add_locked(card, kcontrol);
+		else
+			err = snd_ctl_add(card, kcontrol);
 		if (err < 0) {
 			dev_err(dev, "ASoC: Failed to add %s: %d\n",
 				control->name, err);
@@ -2459,7 +2464,8 @@ int snd_soc_add_component_controls(struct snd_soc_component *component,
 	struct snd_card *card = component->card->snd_card;
 
 	return snd_soc_add_controls(card, component->dev, controls,
-			num_controls, component->name_prefix, component);
+			num_controls, component->name_prefix, component,
+			component->card->instantiated);
 }
 EXPORT_SYMBOL_GPL(snd_soc_add_component_controls);
 
@@ -2516,7 +2522,7 @@ int snd_soc_add_card_controls(struct snd_soc_card *soc_card,
 	struct snd_card *card = soc_card->snd_card;
 
 	return snd_soc_add_controls(card, soc_card->dev, controls, num_controls,
-			NULL, soc_card);
+			NULL, soc_card, soc_card->instantiated);
 }
 EXPORT_SYMBOL_GPL(snd_soc_add_card_controls);
 
@@ -2536,7 +2542,7 @@ int snd_soc_add_dai_controls(struct snd_soc_dai *dai,
 	struct snd_card *card = dai->component->card->snd_card;
 
 	return snd_soc_add_controls(card, dai->dev, controls, num_controls,
-			NULL, dai);
+			NULL, dai, dai->component->card->instantiated);
 }
 EXPORT_SYMBOL_GPL(snd_soc_add_dai_controls);
 
