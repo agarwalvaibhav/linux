@@ -587,6 +587,7 @@ struct snd_soc_dapm_widget {
 	unsigned int mask;			/* non-shifted mask */
 	unsigned int on_val;			/* on state value */
 	unsigned int off_val;			/* off state value */
+	unsigned int linked:1;			/* linkstatus with DAI widget */
 	unsigned char power:1;			/* block power status */
 	unsigned char active:1;			/* active stream on DAC, ADC's */
 	unsigned char connected:1;		/* connected codec pin */

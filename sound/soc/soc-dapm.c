@@ -45,6 +45,7 @@
 
 #include <trace/events/asoc.h>
 
+#define NAME_SIZE     32
 #define DAPM_UPDATE_STAT(widget, val) widget->dapm->card->dapm_stats.val++;
 
 #define SND_SOC_DAPM_DIR_REVERSE(x) ((x == SND_SOC_DAPM_DIR_IN) ? \
@@ -4143,11 +4144,48 @@ int snd_soc_dapm_new_dai_widgets(struct snd_soc_dapm_context *dapm,
 	return 0;
 }
 
+static void soc_dapm_link_dai_widget(struct snd_soc_dapm_widget *dai_w,
+					struct snd_soc_card *card)
+{
+	struct snd_soc_dapm_widget *w;
+	struct snd_soc_dapm_widget *src, *sink;
+	struct snd_soc_dai *dai = dai_w->priv;
+
+	/* ...find all widgets with the same stream and link them */
+	list_for_each_entry(w, &card->widgets, list) {
+		if (w->dapm != dai_w->dapm)
+			continue;
+
+		switch (w->id) {
+		case snd_soc_dapm_dai_in:
+		case snd_soc_dapm_dai_out:
+			continue;
+		default:
+			break;
+		}
+
+		if (!w->sname || !strstr(w->sname, dai_w->sname))
+			continue;
+
+		if (w->linked)
+			return;
+
+		if (dai_w->id == snd_soc_dapm_dai_in) {
+			src = dai_w;
+			sink = w;
+		} else {
+			src = w;
+			sink = dai_w;
+		}
+		dev_dbg(dai->dev, "%s -> %s\n", src->name, sink->name);
+		snd_soc_dapm_add_path(w->dapm, src, sink, NULL, NULL);
+		w->linked = 1;
+	}
+}
+
 int snd_soc_dapm_link_dai_widgets(struct snd_soc_card *card)
 {
-	struct snd_soc_dapm_widget *dai_w, *w;
-	struct snd_soc_dapm_widget *src, *sink;
-	struct snd_soc_dai *dai;
+	struct snd_soc_dapm_widget *dai_w;
 
 	/* For each DAI widget... */
 	list_for_each_entry(dai_w, &card->widgets, list) {
@@ -4158,35 +4196,7 @@ int snd_soc_dapm_link_dai_widgets(struct snd_soc_card *card)
 		default:
 			continue;
 		}
-
-		dai = dai_w->priv;
-
-		/* ...find all widgets with the same stream and link them */
-		list_for_each_entry(w, &card->widgets, list) {
-			if (w->dapm != dai_w->dapm)
-				continue;
-
-			switch (w->id) {
-			case snd_soc_dapm_dai_in:
-			case snd_soc_dapm_dai_out:
-				continue;
-			default:
-				break;
-			}
-
-			if (!w->sname || !strstr(w->sname, dai_w->sname))
-				continue;
-
-			if (dai_w->id == snd_soc_dapm_dai_in) {
-				src = dai_w;
-				sink = w;
-			} else {
-				src = w;
-				sink = dai_w;
-			}
-			dev_dbg(dai->dev, "%s -> %s\n", src->name, sink->name);
-			snd_soc_dapm_add_path(w->dapm, src, sink, NULL, NULL);
-		}
+		soc_dapm_link_dai_widget(dai_w, card);
 	}
 
 	return 0;
