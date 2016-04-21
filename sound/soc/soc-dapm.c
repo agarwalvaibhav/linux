@@ -2120,15 +2120,14 @@ void snd_soc_dapm_debugfs_init(struct snd_soc_dapm_context *dapm,
 static void dapm_debugfs_add_widget(struct snd_soc_dapm_widget *w)
 {
 	struct snd_soc_dapm_context *dapm = w->dapm;
-	struct dentry *d;
 
 	if (!dapm->debugfs_dapm || !w->name)
 		return;
 
-	d = debugfs_create_file(w->name, 0444,
+	w->debugfs_widget = debugfs_create_file(w->name, 0444,
 				dapm->debugfs_dapm, w,
 				&dapm_widget_power_fops);
-	if (!d)
+	if (!w->debugfs_widget)
 		dev_warn(w->dapm->dev,
 			"ASoC: Failed to create %s debugfs file\n",
 			w->name);
@@ -2375,6 +2374,34 @@ struct attribute *soc_dapm_dev_attrs[] = {
 	NULL
 };
 
+static void snd_soc_dapm_remove_kcontrols(struct snd_soc_dapm_widget *w)
+{
+	int i, ret;
+	struct snd_kcontrol *kctl;
+	struct snd_soc_dapm_context *dapm = w->dapm;
+	struct snd_card *card = dapm->card->snd_card;
+
+	if (!w->num_kcontrols)
+		return;
+
+	for (i = 0; i < w->num_kcontrols; i++) {
+		kctl = w->kcontrols[i];
+		dev_dbg(dapm->dev, "Remove %d: %s\n", kctl->id.numid,
+			kctl->id.name);
+		if (!kctl) {
+			dev_err(dapm->dev, "%s: Failed to find %d kcontrol\n",
+				w->name, i);
+			continue;
+		}
+		ret = snd_ctl_remove(card, kctl);
+		if (ret < 0) {
+			dev_err(dapm->dev, "Err %d: while remove %s:%s\n", ret,
+				w->name, kctl->id.name);
+		}
+	}
+	w->num_kcontrols = 0;
+}
+
 static void dapm_free_path(struct snd_soc_dapm_path *path)
 {
 	list_del(&path->list_node[SND_SOC_DAPM_DIR_IN]);
@@ -2384,7 +2411,7 @@ static void dapm_free_path(struct snd_soc_dapm_path *path)
 	kfree(path);
 }
 
-void snd_soc_dapm_free_widget(struct snd_soc_dapm_widget *w)
+void snd_soc_dapm_free_widget(struct snd_soc_dapm_widget *w, bool dynamic)
 {
 	struct snd_soc_dapm_path *p, *next_p;
 	enum snd_soc_dapm_direction dir;
@@ -2400,6 +2427,9 @@ void snd_soc_dapm_free_widget(struct snd_soc_dapm_widget *w)
 			dapm_free_path(p);
 	}
 
+	/* remove associated kcontrols, in case removing dynamically */
+	if (dynamic && w->num_kcontrols)
+		snd_soc_dapm_remove_kcontrols(w);
 	kfree(w->kcontrols);
 	kfree_const(w->name);
 	kfree(w);
@@ -2419,7 +2449,7 @@ static void dapm_free_widgets(struct snd_soc_dapm_context *dapm)
 	list_for_each_entry_safe(w, next_w, &dapm->card->widgets, list) {
 		if (w->dapm != dapm)
 			continue;
-		snd_soc_dapm_free_widget(w);
+		snd_soc_dapm_free_widget(w, false);
 	}
 	snd_soc_dapm_reset_cache(dapm);
 }
