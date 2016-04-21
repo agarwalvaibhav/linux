@@ -348,6 +348,65 @@ static int snd_ctl_find_hole(struct snd_card *card, unsigned int count)
 }
 
 /**
+ * snd_ctl_add_locked - add the control instance to the card
+ * @card: the card instance
+ * @kcontrol: the control instance to add
+ *
+ * Adds the control instance created via snd_ctl_new() or
+ * snd_ctl_new1() to the given card. Assigns also an unique
+ * numid used for fast search.
+ *
+ * It frees automatically the control which cannot be added.
+ *
+ * Return: Zero if successful, or a negative error code on failure.
+ *
+ */
+int snd_ctl_add_locked(struct snd_card *card, struct snd_kcontrol *kcontrol)
+{
+	struct snd_ctl_elem_id id;
+	unsigned int idx;
+	unsigned int count;
+	int err = -EINVAL;
+
+	if (! kcontrol)
+		return err;
+	if (snd_BUG_ON(!card || !kcontrol->info))
+		goto error;
+	id = kcontrol->id;
+	if (id.index > UINT_MAX - kcontrol->count)
+		goto error;
+
+	if (snd_ctl_find_id(card, &id)) {
+		dev_err(card->dev, "control %i:%i:%i:%s:%i is already present\n",
+					id.iface,
+					id.device,
+					id.subdevice,
+					id.name,
+					id.index);
+		err = -EBUSY;
+		goto error;
+	}
+	if (snd_ctl_find_hole(card, kcontrol->count) < 0) {
+		err = -ENOMEM;
+		goto error;
+	}
+	list_add_tail(&kcontrol->list, &card->controls);
+	card->controls_count += kcontrol->count;
+	kcontrol->id.numid = card->last_numid + 1;
+	card->last_numid += kcontrol->count;
+	id = kcontrol->id;
+	count = kcontrol->count;
+	for (idx = 0; idx < count; idx++, id.index++, id.numid++)
+		snd_ctl_notify(card, SNDRV_CTL_EVENT_MASK_ADD, &id);
+	return 0;
+
+ error:
+	snd_ctl_free_one(kcontrol);
+	return err;
+}
+EXPORT_SYMBOL(snd_ctl_add_locked);
+
+/**
  * snd_ctl_add - add the control instance to the card
  * @card: the card instance
  * @kcontrol: the control instance to add
@@ -363,49 +422,11 @@ static int snd_ctl_find_hole(struct snd_card *card, unsigned int count)
  */
 int snd_ctl_add(struct snd_card *card, struct snd_kcontrol *kcontrol)
 {
-	struct snd_ctl_elem_id id;
-	unsigned int idx;
-	unsigned int count;
-	int err = -EINVAL;
-
-	if (! kcontrol)
-		return err;
-	if (snd_BUG_ON(!card || !kcontrol->info))
-		goto error;
-	id = kcontrol->id;
-	if (id.index > UINT_MAX - kcontrol->count)
-		goto error;
+	int err;
 
 	down_write(&card->controls_rwsem);
-	if (snd_ctl_find_id(card, &id)) {
-		up_write(&card->controls_rwsem);
-		dev_err(card->dev, "control %i:%i:%i:%s:%i is already present\n",
-					id.iface,
-					id.device,
-					id.subdevice,
-					id.name,
-					id.index);
-		err = -EBUSY;
-		goto error;
-	}
-	if (snd_ctl_find_hole(card, kcontrol->count) < 0) {
-		up_write(&card->controls_rwsem);
-		err = -ENOMEM;
-		goto error;
-	}
-	list_add_tail(&kcontrol->list, &card->controls);
-	card->controls_count += kcontrol->count;
-	kcontrol->id.numid = card->last_numid + 1;
-	card->last_numid += kcontrol->count;
-	id = kcontrol->id;
-	count = kcontrol->count;
+	err = snd_ctl_add_locked(card, kcontrol);
 	up_write(&card->controls_rwsem);
-	for (idx = 0; idx < count; idx++, id.index++, id.numid++)
-		snd_ctl_notify(card, SNDRV_CTL_EVENT_MASK_ADD, &id);
-	return 0;
-
- error:
-	snd_ctl_free_one(kcontrol);
 	return err;
 }
 EXPORT_SYMBOL(snd_ctl_add);
