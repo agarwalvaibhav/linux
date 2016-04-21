@@ -911,6 +911,10 @@ static int dapm_create_or_share_kcontrol(struct snd_soc_dapm_widget *w,
 		}
 
 		ret = snd_ctl_add(card, kcontrol);
+		if (dapm->card->instantiated)
+			ret = snd_ctl_add_locked(card, kcontrol);
+		else
+			ret = snd_ctl_add(card, kcontrol);
 		if (ret < 0) {
 			dev_err(dapm->dev,
 				"ASoC: failed to add widget %s dapm kcontrol %s: %d\n",
