@@ -415,7 +415,7 @@ int snd_soc_dapm_del_routes(struct snd_soc_dapm_context *dapm,
 			    const struct snd_soc_dapm_route *route, int num);
 int snd_soc_dapm_weak_routes(struct snd_soc_dapm_context *dapm,
 			     const struct snd_soc_dapm_route *route, int num);
-void snd_soc_dapm_free_widget(struct snd_soc_dapm_widget *w);
+void snd_soc_dapm_free_widget(struct snd_soc_dapm_widget *w, bool dynamic);
 void snd_soc_dapm_reset_cache(struct snd_soc_dapm_context *dapm);
 
 /* dapm events */
@@ -618,6 +618,9 @@ struct snd_soc_dapm_widget {
 	int endpoints[2];
 
 	struct clk *clk;
+#ifdef CONFIG_DEBUG_FS
+	struct dentry *debugfs_widget;
+#endif
 };
 
 struct snd_soc_dapm_update {
