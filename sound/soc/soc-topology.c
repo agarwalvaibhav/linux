@@ -2504,7 +2504,7 @@ void snd_soc_tplg_widget_remove_all(struct snd_soc_dapm_context *dapm,
 			continue;
 		/* check and free and dynamic widget kcontrols */
 		snd_soc_tplg_widget_remove(w);
-		snd_soc_dapm_free_widget(w);
+		snd_soc_dapm_free_widget(w, false);
 	}
 	snd_soc_dapm_reset_cache(dapm);
 }
