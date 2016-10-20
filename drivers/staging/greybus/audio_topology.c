@@ -361,8 +361,8 @@ static int gbcodec_mixer_dapm_ctl_info(struct snd_kcontrol *kcontrol,
 	info = (struct gb_audio_ctl_elem_info *)data->info;
 
 	/* update uinfo */
-	platform_max = info->value.integer.max;
-	platform_min = info->value.integer.min;
+	platform_max = le32_to_cpu(info->value.integer.max);
+	platform_min = le32_to_cpu(info->value.integer.min);
 
 	if (platform_max == 1 &&
 	    !strnstr(kcontrol->id.name, " Volume", NAME_SIZE))
@@ -371,12 +371,8 @@ static int gbcodec_mixer_dapm_ctl_info(struct snd_kcontrol *kcontrol,
 		uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
 
 	uinfo->count = data->vcount;
-	uinfo->value.integer.min = 0;
-	if (info->value.integer.min < 0 &&
-	    (uinfo->type == SNDRV_CTL_ELEM_TYPE_INTEGER))
-		uinfo->value.integer.max = platform_max - platform_min;
-	else
-		uinfo->value.integer.max = platform_max;
+	uinfo->value.integer.min = platform_min;
+	uinfo->value.integer.max = platform_max;
 
 	return 0;
 }
