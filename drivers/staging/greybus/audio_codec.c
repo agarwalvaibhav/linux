@@ -796,6 +796,7 @@ int gbaudio_register_module(struct gbaudio_module_info *module)
 {
 	int ret;
 	struct snd_soc_codec *codec;
+	struct snd_soc_component *component;
 	struct snd_card *card;
 	struct snd_soc_jack *jack = NULL;
 
@@ -805,7 +806,8 @@ int gbaudio_register_module(struct gbaudio_module_info *module)
 	}
 
 	codec = gbcodec->codec;
-	card = codec->card->snd_card;
+	component = &codec->component;
+	card = component->card->snd_card;
 
 	down_write(&card->controls_rwsem);
 
@@ -824,19 +826,19 @@ int gbaudio_register_module(struct gbaudio_module_info *module)
 	}
 
 	if (module->dapm_widgets)
-		snd_soc_dapm_new_controls(&codec->dapm, module->dapm_widgets,
+		snd_soc_dapm_new_controls(&component->dapm, module->dapm_widgets,
 					  module->num_dapm_widgets);
 	if (module->controls)
 		snd_soc_add_codec_controls(codec, module->controls,
 				     module->num_controls);
 	if (module->dapm_routes)
-		snd_soc_dapm_add_routes(&codec->dapm, module->dapm_routes,
+		snd_soc_dapm_add_routes(&component->dapm, module->dapm_routes,
 					module->num_dapm_routes);
 
 	/* card already instantiated, create widgets here only */
-	if (codec->card->instantiated) {
-		snd_soc_dapm_link_component_dai_widgets(codec->card,
-							&codec->dapm);
+	if (component->card->instantiated) {
+		snd_soc_dapm_link_component_dai_widgets(component->card,
+							&component->dapm);
 #ifdef CONFIG_SND_JACK
 		/*
 		 * register jack devices for this module
@@ -845,7 +847,7 @@ int gbaudio_register_module(struct gbaudio_module_info *module)
 		list_for_each_entry(jack, &codec->jack_list, list) {
 			if ((jack == &module->headset_jack)
 			    || (jack == &module->button_jack))
-				snd_device_register(codec->card->snd_card,
+				snd_device_register(component->card->snd_card,
 						    jack->jack);
 		}
 #endif
@@ -855,8 +857,8 @@ int gbaudio_register_module(struct gbaudio_module_info *module)
 	list_add(&module->list, &gbcodec->module_list);
 	mutex_unlock(&gbcodec->lock);
 
-	if (codec->card->instantiated)
-		ret = snd_soc_dapm_new_widgets(&codec->dapm);
+	if (component->card->instantiated)
+		ret = snd_soc_dapm_new_widgets(&component->dapm);
 	dev_dbg(codec->dev, "Registered %s module\n", module->name);
 
 	up_write(&card->controls_rwsem);
@@ -931,7 +933,8 @@ static void gbaudio_codec_cleanup(struct gbaudio_module_info *module)
 void gbaudio_unregister_module(struct gbaudio_module_info *module)
 {
 	struct snd_soc_codec *codec = gbcodec->codec;
-	struct snd_card *card = codec->card->snd_card;
+	struct snd_soc_component *component = &codec->component;
+	struct snd_card *card = component->card->snd_card;
 	struct snd_soc_jack *jack, *next_j;
 	int mask;
 
@@ -957,7 +960,7 @@ void gbaudio_unregister_module(struct gbaudio_module_info *module)
 			dev_dbg(module->dev, "Report %s removal\n",
 				jack->jack->id);
 			snd_soc_jack_report(jack, 0, mask);
-			snd_device_free(codec->card->snd_card, jack->jack);
+			snd_device_free(component->card->snd_card, jack->jack);
 			list_del(&jack->list);
 		}
 	}
@@ -966,7 +969,7 @@ void gbaudio_unregister_module(struct gbaudio_module_info *module)
 	if (module->dapm_routes) {
 		dev_dbg(codec->dev, "Removing %d routes\n",
 			module->num_dapm_routes);
-		snd_soc_dapm_del_routes(&codec->dapm, module->dapm_routes,
+		snd_soc_dapm_del_routes(&component->dapm, module->dapm_routes,
 					module->num_dapm_routes);
 	}
 	if (module->controls) {
@@ -978,7 +981,7 @@ void gbaudio_unregister_module(struct gbaudio_module_info *module)
 	if (module->dapm_widgets) {
 		dev_dbg(codec->dev, "Removing %d widgets\n",
 			module->num_dapm_widgets);
-		snd_soc_dapm_free_controls(&codec->dapm, module->dapm_widgets,
+		snd_soc_dapm_free_controls(&component->dapm, module->dapm_widgets,
 					   module->num_dapm_widgets);
 	}
 
