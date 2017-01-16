@@ -459,6 +459,7 @@ static int gbcodec_mixer_dapm_ctl_put(struct snd_kcontrol *kcontrol,
 
 	/* update ucontrol */
 	if (gbvalue.value.integer_value[0] != val) {
+		/*
 		for (wi = 0; wi < wlist->num_widgets; wi++) {
 			widget = wlist->widgets[wi];
 
@@ -467,6 +468,7 @@ static int gbcodec_mixer_dapm_ctl_put(struct snd_kcontrol *kcontrol,
 			snd_soc_dapm_mixer_update_power(widget, kcontrol,
 							connect);
 		}
+		*/
 		gbvalue.value.integer_value[0] =
 			cpu_to_le32(ucontrol->value.integer.value[0]);
 
@@ -838,6 +840,7 @@ static int gbcodec_enum_dapm_ctl_put(struct snd_kcontrol *kcontrol,
 					    "%d:Error in %s for %s\n", ret,
 					    __func__, kcontrol->id.name);
 		}
+		/*
 		for (wi = 0; wi < wlist->num_widgets; wi++) {
 			widget = wlist->widgets[wi];
 
@@ -845,6 +848,7 @@ static int gbcodec_enum_dapm_ctl_put(struct snd_kcontrol *kcontrol,
 			widget->dapm->update = NULL;
 			snd_soc_dapm_mux_update_power(widget, kcontrol, mux, e);
 		}
+		*/
 	}
 
 	return change;
