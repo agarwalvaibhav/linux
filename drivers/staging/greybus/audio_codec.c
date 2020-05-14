@@ -14,6 +14,7 @@
 #include "audio_codec.h"
 #include "audio_apbridgea.h"
 #include "audio_manager.h"
+#include "audio_helper.h"
 
 static struct gbaudio_codec_info *gbcodec;
 
@@ -874,7 +875,7 @@ int gbaudio_register_module(struct gbaudio_module_info *module)
 
 	/* card already instantiated, create widgets here only */
 	if (component->card->instantiated) {
-		snd_soc_dapm_link_component_dai_widgets(component->card,
+		gbaudio_dapm_link_component_dai_widgets(component->card,
 							&component->dapm);
 #ifdef CONFIG_SND_JACK
 		/*
@@ -1004,19 +1005,23 @@ void gbaudio_unregister_module(struct gbaudio_module_info *module)
 	if (module->dapm_routes) {
 		dev_dbg(component->dev, "Removing %d routes\n",
 			module->num_dapm_routes);
+		/* verify routes with controls are removed */
 		snd_soc_dapm_del_routes(&component->dapm, module->dapm_routes,
 					module->num_dapm_routes);
 	}
 	if (module->controls) {
 		dev_dbg(component->dev, "Removing %d controls\n",
 			module->num_controls);
-		snd_soc_remove_codec_controls(component, module->controls,
-					      module->num_controls);
+		/* release control semaphore */
+		up_write(&card->controls_rwsem);
+		gbaudio_remove_component_controls(component, module->controls,
+						  module->num_controls);
+		down_write(&card->controls_rwsem);
 	}
 	if (module->dapm_widgets) {
 		dev_dbg(component->dev, "Removing %d widgets\n",
 			module->num_dapm_widgets);
-		snd_soc_dapm_free_controls(&component->dapm,
+		gbaudio_dapm_free_controls(&component->dapm,
 					   module->dapm_widgets,
 					   module->num_dapm_widgets);
 	}
