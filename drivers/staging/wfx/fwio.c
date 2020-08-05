@@ -177,7 +177,7 @@ static int wait_ncp_status(struct wfx_dev *wdev, u32 status)
 static int upload_firmware(struct wfx_dev *wdev, const u8 *data, size_t len)
 {
 	int ret;
-	u32 offs, bytes_done;
+	u32 offs, bytes_done = 0;
 	ktime_t now, start;
 
 	if (len % DNLD_BLOCK_SIZE) {
@@ -397,10 +397,9 @@ int wfx_init_device(struct wfx_dev *wdev)
 	ret = load_firmware_secure(wdev);
 	if (ret < 0)
 		return ret;
-	ret = config_reg_write_bits(wdev,
-				    CFG_DIRECT_ACCESS_MODE |
-				    CFG_IRQ_ENABLE_DATA |
-				    CFG_IRQ_ENABLE_WRDY,
-				    CFG_IRQ_ENABLE_DATA);
-	return ret;
+	return config_reg_write_bits(wdev,
+				     CFG_DIRECT_ACCESS_MODE |
+				     CFG_IRQ_ENABLE_DATA |
+				     CFG_IRQ_ENABLE_WRDY,
+				     CFG_IRQ_ENABLE_DATA);
 }

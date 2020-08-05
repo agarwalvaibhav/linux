@@ -42,9 +42,9 @@ static int ql_wait_other_func_reg_rdy(struct ql_adapter *qdev, u32 reg,
 				      u32 bit, u32 err_bit)
 {
 	u32 temp;
-	int count = 10;
+	int count;
 
-	while (count) {
+	for (count = 10; count; count--) {
 		temp = ql_read_other_func_reg(qdev, reg);
 
 		/* check for errors */
@@ -53,7 +53,6 @@ static int ql_wait_other_func_reg_rdy(struct ql_adapter *qdev, u32 reg,
 		else if (temp & bit)
 			return 0;
 		mdelay(10);
-		count--;
 	}
 	return -1;
 }
@@ -1299,7 +1298,7 @@ void ql_get_dump(struct ql_adapter *qdev, void *buff)
 	 * If the dump has already been taken and is stored
 	 * in our internal buffer and if force dump is set then
 	 * just start the spool to dump it to the log file
-	 * and also, take a snapshot of the general regs to
+	 * and also, take a snapshot of the general regs
 	 * to the user's buffer or else take complete dump
 	 * to the user's buffer if force is not set.
 	 */

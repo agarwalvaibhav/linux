@@ -2275,7 +2275,7 @@ fail_free_handler_thread:
 	return VCHIQ_ERROR;
 }
 
-void vchiq_msg_queue_push(unsigned handle, struct vchiq_header *header)
+void vchiq_msg_queue_push(unsigned int handle, struct vchiq_header *header)
 {
 	struct vchiq_service *service = find_service_by_handle(handle);
 	int pos;
@@ -2293,7 +2293,7 @@ void vchiq_msg_queue_push(unsigned handle, struct vchiq_header *header)
 }
 EXPORT_SYMBOL(vchiq_msg_queue_push);
 
-struct vchiq_header *vchiq_msg_hold(unsigned handle)
+struct vchiq_header *vchiq_msg_hold(unsigned int handle)
 {
 	struct vchiq_service *service = find_service_by_handle(handle);
 	struct vchiq_header *header;
@@ -2710,7 +2710,7 @@ vchiq_close_service_internal(struct vchiq_service *service, int close_recvd)
 
 	case VCHIQ_SRVSTATE_OPENSYNC:
 		mutex_lock(&state->sync_mutex);
-		/* fall through */
+		fallthrough;
 	case VCHIQ_SRVSTATE_OPEN:
 		if (close_recvd) {
 			if (!do_abort_bulks(service))
@@ -3214,7 +3214,7 @@ error_exit:
 	return status;
 }
 
-int vchiq_queue_kernel_message(unsigned handle, void *data, unsigned size)
+int vchiq_queue_kernel_message(unsigned int handle, void *data, unsigned int size)
 {
 	enum vchiq_status status;
 

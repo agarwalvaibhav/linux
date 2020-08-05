@@ -163,7 +163,7 @@ struct mmal_msg_context {
 };
 
 struct vchiq_mmal_instance {
-	unsigned service_handle;
+	unsigned int service_handle;
 
 	/* ensure serialised access to service */
 	struct mutex vchiq_mutex;
@@ -295,12 +295,12 @@ static void buffer_to_host_work_cb(struct work_struct *work)
 	vchiq_use_service(instance->service_handle);
 	ret = vchiq_bulk_receive(instance->service_handle,
 				 msg_context->u.bulk.buffer->buffer,
-			         /* Actual receive needs to be a multiple
-			          * of 4 bytes
-			          */
-			         (len + 3) & ~3,
-			         msg_context,
-			         VCHIQ_BULK_MODE_CALLBACK);
+				 /* Actual receive needs to be a multiple
+				  * of 4 bytes
+				  */
+				(len + 3) & ~3,
+				msg_context,
+				VCHIQ_BULK_MODE_CALLBACK);
 
 	vchiq_release_service(instance->service_handle);
 
@@ -441,6 +441,8 @@ buffer_from_host(struct vchiq_mmal_instance *instance,
 	ret = vchiq_queue_kernel_message(instance->service_handle, &m,
 					 sizeof(struct mmal_msg_header) +
 					 sizeof(m.u.buffer_from_host));
+	if (ret)
+		atomic_dec(&port->buffers_with_vpu);
 
 	vchiq_release_service(instance->service_handle);
 
@@ -548,7 +550,7 @@ static void bulk_abort_cb(struct vchiq_mmal_instance *instance,
 /* incoming event service callback */
 static enum vchiq_status service_callback(enum vchiq_reason reason,
 					  struct vchiq_header *header,
-					  unsigned handle, void *bulk_ctx)
+					  unsigned int handle, void *bulk_ctx)
 {
 	struct vchiq_mmal_instance *instance = vchiq_get_service_userdata(handle);
 	u32 msg_len;
